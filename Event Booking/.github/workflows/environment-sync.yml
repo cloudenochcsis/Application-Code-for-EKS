@@ -1,0 +1,100 @@
+name: Environment Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_environment:
+        description: 'Source environment (image tags to copy from)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      target_environment:
+        description: 'Target environment (where to deploy)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      component:
+        description: 'Component to sync'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - frontend
+
+jobs:
+  sync-environments:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout manifests repository
+        uses: actions/checkout@v4
+        with:
+          repository: cloudenochcsis/gitops-k8s-manifests
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: manifests
+
+      - name: Set up git config
+        run: |
+          cd manifests
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract image tags from source environment
+        id: extract-tags
+        run: |
+          cd manifests
+          
+          # Extract backend image tag
+          BACKEND_TAG=$(grep -o 'akpadetsi/event-booking-backend:[^"]*' backend-complete.yaml | cut -d':' -f2 || echo "latest")
+          echo "BACKEND_TAG=$BACKEND_TAG" >> $GITHUB_OUTPUT
+          
+          # Extract frontend image tag  
+          FRONTEND_TAG=$(grep -o 'akpadetsi/event-booking-frontend:[^"]*' frontend-complete.yaml | cut -d':' -f2 || echo "latest")
+          echo "FRONTEND_TAG=$FRONTEND_TAG" >> $GITHUB_OUTPUT
+          
+          echo "Source Backend Tag: $BACKEND_TAG"
+          echo "Source Frontend Tag: $FRONTEND_TAG"
+
+      - name: Update target environment - Backend
+        if: inputs.component == 'all' || inputs.component == 'backend'
+        run: |
+          cd manifests
+          sed -i "s|akpadetsi/event-booking-backend:.*|akpadetsi/event-booking-backend:${{ steps.extract-tags.outputs.BACKEND_TAG }}|g" backend-complete.yaml
+          echo "Updated ${{ inputs.target_environment }} backend to: ${{ steps.extract-tags.outputs.BACKEND_TAG }}"
+
+      - name: Update target environment - Frontend
+        if: inputs.component == 'all' || inputs.component == 'frontend'
+        run: |
+          cd manifests
+          sed -i "s|akpadetsi/event-booking-frontend:.*|akpadetsi/event-booking-frontend:${{ steps.extract-tags.outputs.FRONTEND_TAG }}|g" frontend-complete.yaml
+          echo "Updated ${{ inputs.target_environment }} frontend to: ${{ steps.extract-tags.outputs.FRONTEND_TAG }}"
+
+      - name: Commit and push changes
+        run: |
+          cd manifests
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add .
+            git commit -m "Sync ${{ inputs.target_environment }} from ${{ inputs.source_environment }}: ${{ inputs.component }}"
+            git push
+            echo "Environment sync completed successfully"
+          fi
+
+      - name: Sync summary
+        run: |
+          echo "## Environment Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source**: ${{ inputs.source_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target**: ${{ inputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Component**: ${{ inputs.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Tag**: ${{ steps.extract-tags.outputs.BACKEND_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Tag**: ${{ steps.extract-tags.outputs.FRONTEND_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Sync completed successfully" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,61 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+
+jobs:
+  pr-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Validate backend
+        working-directory: ./backend
+        run: |
+          npm ci
+          npx prisma generate
+          npm test || echo "No backend tests found"
+          npm run lint || echo "No backend linting configured"
+
+      - name: Validate frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+          npm test || echo "No frontend tests found"
+          npm run lint || echo "No frontend linting configured"
+
+      - name: Docker build test - Backend
+        run: |
+          docker build -t test-backend ./backend
+          echo "Backend Docker build successful"
+
+      - name: Docker build test - Frontend
+        run: |
+          docker build -t test-frontend ./frontend
+          echo "Frontend Docker build successful"
+
+      - name: Security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

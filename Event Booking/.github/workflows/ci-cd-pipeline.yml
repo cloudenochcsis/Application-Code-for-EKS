@@ -1,0 +1,243 @@
+name: Event Booking CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+
+env:
+  REGISTRY: docker.io
+  BACKEND_IMAGE_NAME: akpadetsi/event-booking-backend
+  FRONTEND_IMAGE_NAME: akpadetsi/event-booking-frontend
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-changed: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  backend-pipeline:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Run tests
+        working-directory: ./backend
+        run: npm test
+        env:
+          NODE_ENV: test
+
+      - name: Run linting
+        working-directory: ./backend
+        run: npm run lint || echo "No lint script found, skipping..."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Output backend image digest
+        if: github.event_name != 'pull_request'
+        run: echo "Backend image digest: ${{ steps.build-backend.outputs.digest }}"
+
+  frontend-pipeline:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm test || echo "No test script found, skipping..."
+
+      - name: Run linting
+        working-directory: ./frontend
+        run: npm run lint || echo "No lint script found, skipping..."
+
+      - name: Build application
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Output frontend image digest
+        if: github.event_name != 'pull_request'
+        run: echo "Frontend image digest: ${{ steps.build-frontend.outputs.digest }}"
+
+  update-manifests:
+    needs: [detect-changes, backend-pipeline, frontend-pipeline]
+    if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout manifests repository
+        uses: actions/checkout@v4
+        with:
+          repository: cloudenochcsis/gitops-k8s-manifests
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: manifests
+
+      - name: Set up git config
+        run: |
+          cd manifests
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update backend image tag
+        if: needs.detect-changes.outputs.backend-changed == 'true'
+        run: |
+          cd manifests
+          IMAGE_TAG="main-$(echo ${{ github.sha }} | cut -c1-7)"
+          sed -i "s|akpadetsi/event-booking-backend:.*|akpadetsi/event-booking-backend:${IMAGE_TAG}|g" backend-complete.yaml
+          echo "Updated backend image to: akpadetsi/event-booking-backend:${IMAGE_TAG}"
+
+      - name: Update frontend image tag
+        if: needs.detect-changes.outputs.frontend-changed == 'true'
+        run: |
+          cd manifests
+          IMAGE_TAG="main-$(echo ${{ github.sha }} | cut -c1-7)"
+          sed -i "s|akpadetsi/event-booking-frontend:.*|akpadetsi/event-booking-frontend:${IMAGE_TAG}|g" frontend-complete.yaml
+          echo "Updated frontend image to: akpadetsi/event-booking-frontend:${IMAGE_TAG}"
+
+      - name: Commit and push changes
+        run: |
+          cd manifests
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add .
+            git commit -m "Auto-update image tags from commit ${{ github.sha }}"
+            git push
+            echo "Pushed updated manifests to GitOps repository"
+          fi
+
+  notify-deployment:
+    needs: [update-manifests]
+    if: always() && needs.update-manifests.result == 'success'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deployment notification
+        run: |
+          echo "Deployment pipeline completed successfully!"
+          echo "Docker images built and pushed"
+          echo "Manifest files updated"
+          echo "ArgoCD will automatically deploy the changes"

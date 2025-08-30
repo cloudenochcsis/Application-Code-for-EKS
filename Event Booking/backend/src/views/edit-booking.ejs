@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Booking - Blue Ticks Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #F9FAFB 0%, #DBEAFE 100%);
+            color: #111827;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+            box-shadow: 0 10px 25px rgba(30, 64, 175, 0.2);
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .header-icon {
+            width: 3rem;
+            height: 3rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 1.75rem;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        
+        .back-link {
+            color: #3B82F6;
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            display: inline-block;
+        }
+        
+        .back-link:hover {
+            color: #1E40AF;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 3rem;
+            backdrop-filter: blur(10px);
+            margin-top: -2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #1E40AF, #3B82F6, #60A5FA);
+        }
+        
+        .form-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #E5E7EB;
+            background: #DBEAFE;
+        }
+        
+        .form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1E40AF, #3B82F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .form-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: linear-gradient(135deg, #DBEAFE, #BFDBFE);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .form-body {
+            padding: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #1E3A8A;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background: #1E40AF;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1E3A8A;
+        }
+        
+        .btn-secondary {
+            background: #6B7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4B5563;
+        }
+        
+        .booking-info {
+            background: #F3F4F6;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #6B7280;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .form-body {
+                padding: 1.5rem;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <div class="header-icon">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: white;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Edit Booking</h1>
+                    <div class="header-subtitle">Modify booking details and save changes</div>
+                </div>
+            </div>
+            <a href="/admin/dashboard" class="back-link">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-card">
+            <h2 class="form-title">
+                <div class="form-icon">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #1E40AF;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </div>
+                Edit Booking Details
+            </h2>
+            
+            <div class="form-body">
+                <div class="booking-info">
+                    <strong>Booking ID:</strong> <%= booking.id %> | 
+                    <strong>Originally booked:</strong> <%= new Date(booking.created_at).toLocaleDateString('en-US') %>
+                </div>
+                
+                <form action="/admin/update/<%= booking.id %>" method="POST">
+                    <div class="form-group">
+                        <label for="event_date" class="form-label">Event Date</label>
+                        <input 
+                            type="date" 
+                            id="event_date" 
+                            name="event_date" 
+                            class="form-input" 
+                            value="<%= booking.event_date.toISOString().split('T')[0] %>" 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="event_type" class="form-label">Event Type</label>
+                        <select id="event_type" name="event_type" class="form-select" required>
+                            <option value="Wedding" <%= booking.event_type === 'Wedding' ? 'selected' : '' %>>Wedding</option>
+                            <option value="Birthday" <%= booking.event_type === 'Birthday' ? 'selected' : '' %>>Birthday</option>
+                            <option value="Corporate" <%= booking.event_type === 'Corporate' ? 'selected' : '' %>>Corporate</option>
+                            <option value="Other" <%= booking.event_type === 'Other' ? 'selected' : '' %>>Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customer_name" class="form-label">Customer Name</label>
+                        <input 
+                            type="text" 
+                            id="customer_name" 
+                            name="customer_name" 
+                            class="form-input" 
+                            value="<%= booking.customer_name %>" 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customer_email" class="form-label">Customer Email</label>
+                        <input 
+                            type="email" 
+                            id="customer_email" 
+                            name="customer_email" 
+                            class="form-input" 
+                            value="<%= booking.customer_email %>" 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customer_phone" class="form-label">Customer Phone (Optional)</label>
+                        <input 
+                            type="tel" 
+                            id="customer_phone" 
+                            name="customer_phone" 
+                            class="form-input" 
+                            value="<%= booking.customer_phone || '' %>"
+                        >
+                    </div>
+                    
+                    <div class="form-actions">
+                        <a href="/admin/dashboard" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Update Booking</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
