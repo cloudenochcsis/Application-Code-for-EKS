@@ -6,7 +6,7 @@ This repository provides a production-ready setup for deploying applications to 
 
 ## Credits
 
-This project is based on the excellent **Terraform Full Course with Azure** by Piyush Sachdeva. A copy of this project was taken from the original course repository to learn and practice GitOps and Terraform concepts.
+This project is a fork of the excellent **Terraform Full Course with Azure** by Piyush Sachdeva. The codebase has been taken and modified from the original course repository to suit this project's specific GitOps and enterprise deployment requirements.
 
 **Original Course Repository**: [https://github.com/piyushsachdeva/Terraform-Full-Course-Azure](https://github.com/piyushsachdeva/Terraform-Full-Course-Azure)
 

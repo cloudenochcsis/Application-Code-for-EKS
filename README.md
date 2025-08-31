@@ -4,32 +4,7 @@ A production-ready, cloud-native event booking application deployed on Azure Kub
 
 ## Architecture Overview
 
-This project implements a modern 3-tier web application with cloud-native deployment practices:
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Vue.js SPA    │    │   Node.js API   │    │   PostgreSQL    │
-│   (Frontend)    │◄──►│   (Backend)     │◄──►│   (Database)    │
-│   Port: 80      │    │   Port: 8080    │    │   Port: 5432    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                        │                        │
-         └────────────────────────┼────────────────────────┘
-                                  │
-         ┌─────────────────────────▼─────────────────────────┐
-         │              Azure Kubernetes Service              │
-         │                    (AKS Cluster)                  │
-         │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐│
-         │  │   ArgoCD    │  │ External    │  │   Azure     ││
-         │  │   GitOps    │  │ Secrets     │  │ Key Vault   ││
-         │  │ Deployment  │  │ Operator    │  │Integration  ││
-         │  └─────────────┘  └─────────────┘  └─────────────┘│
-         └───────────────────────────────────────────────────┘
-                                  │
-         ┌─────────────────────────▼─────────────────────────┐
-         │             Terraform Infrastructure               │
-         │         (Multi-Environment: dev/test/prod)         │
-         └───────────────────────────────────────────────────┘
-```
+This project implements a modern 3-tier web application with cloud-native deployment practices.
 
 ## Features
 
