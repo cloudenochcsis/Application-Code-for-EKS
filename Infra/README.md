@@ -1,8 +1,8 @@
-# AKS GitOps Deployment Guide
+# Event Booking AKS GitOps Infrastructure
 
-**Complete step-by-step guide to deploy AKS with GitOps using Terraform and ArgoCD**
+**Complete infrastructure setup for deploying Event Booking application on AKS using GitOps**
 
-This repository provides a production-ready setup for deploying applications to Azure Kubernetes Service (AKS) using GitOps principles with ArgoCD and Terraform.
+This repository provides a production-ready infrastructure setup for deploying the Event Booking application to Azure Kubernetes Service (AKS) using GitOps principles with ArgoCD and Terraform.
 
 ## Credits
 
@@ -31,10 +31,11 @@ Special thanks to Piyush Sachdeva for creating this comprehensive learning resou
 
 ### Components
 
+- **Application**: Event Booking system (Vue.js frontend, Node.js backend, PostgreSQL database)
 - **Infrastructure**: Azure Kubernetes Service (AKS) with auto-scaling
 - **GitOps Platform**: ArgoCD for continuous deployment
-- **State Management**: Terraform with remote state (optional)
-- **Authentication**: Azure AD integration with local admin accounts
+- **State Management**: Terraform with remote state (Azure Storage)
+- **Secrets Management**: Azure Key Vault with External Secrets Operator
 - **Networking**: Azure CNI with network policies
 
 <img width="1519" height="836" alt="Screenshot 2025-07-18 at 5 31 50 AM" src="https://github.com/user-attachments/assets/c1ce8dfc-cb87-4620-bfad-6c6d573d1709" />
@@ -192,7 +193,7 @@ Before deploying ANY infrastructure, you MUST first set up your GitOps repositor
 
 1. **Go to GitHub.com** and create a new repository:
    - **Repository name**: `gitops-configs` (or your preferred name)
-   - **Description**: "Kubernetes manifests for 3-tier application GitOps deployment"
+   - **Description**: "Kubernetes manifests for Event Booking application GitOps deployment"
    - **Visibility**: Public (recommended) or Private with proper access configured
    - **Initialize with README**
 
@@ -206,7 +207,7 @@ Before deploying ANY infrastructure, you MUST first set up your GitOps repositor
 #### 1.2 Copy and Push Manifest Files
 
 ```bash
-# From this project's directory, copy the 3-tier application manifests
+# From this project's directory, copy the Event Booking application manifests
 # Make sure you're in the root of this project first
 cd Terraform-Full-Course-Azure/lessons/day28
 
@@ -214,7 +215,7 @@ cd Terraform-Full-Course-Azure/lessons/day28
 cp -r manifest-files/* /path/to/your/gitops-configs/
 
 # Or if you're already in the gitops-configs directory:
-# cp /path/to/this/project/manifest-files/3tire-configs/* .
+# cp /path/to/this/project/Manifests/3tire-configs/* .
 
 # Navigate to your GitOps repository
 cd /path/to/your/gitops-configs
@@ -457,7 +458,7 @@ apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: postgres-secrets-provider
-  namespace: 3tirewebapp-dev
+  namespace: event-booking-dev
 spec:
   provider: azure
   parameters:
@@ -501,7 +502,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: key-vault-config
-  namespace: 3tirewebapp-dev
+  namespace: event-booking-dev
 data:
   KEY_VAULT_NAME: "REPLACE_WITH_KEY_VAULT_NAME"                 # ← Update this
   KEY_VAULT_SECRET_POSTGRES_USERNAME: "postgres-username"
@@ -635,12 +636,12 @@ git push origin main
 kubectl get applications -n argocd
 
 # Force sync if needed
-kubectl patch application 3tirewebapp-dev -n argocd --type merge \
+kubectl patch application event-booking-dev -n argocd --type merge \
   --patch '{"operation":{"sync":{"syncStrategy":{"force":true}}}}'
 
 # Verify Key Vault integration is working
-kubectl get secretproviderclass -n 3tirewebapp-dev
-kubectl describe secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev
+kubectl get secretproviderclass -n event-booking-dev
+kubectl describe secretproviderclass postgres-secrets-provider -n event-booking-dev
 ```
 
 ### 6.5 Troubleshooting Key Vault Issues
@@ -650,13 +651,13 @@ kubectl describe secretproviderclass postgres-secrets-provider -n 3tirewebapp-de
 **1. "tenantId is not set" Error**
 ```bash
 # Ensure tenantId is properly set in SecretProviderClass
-kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev -o yaml | grep tenantId
+kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev -o yaml | grep tenantId
 ```
 
 **2. "Multiple user assigned identities" Error**  
 ```bash
 # Ensure userAssignedIdentityID is specified
-kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev -o yaml | grep userAssignedIdentityID
+kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev -o yaml | grep userAssignedIdentityID
 ```
 
 **3. "403 Forbidden" Key Vault Access Error**
@@ -671,7 +672,7 @@ az keyvault show --name $(terraform output -raw key_vault_name) \
 **4. Pod Stuck in "ContainerCreating"**
 ```bash
 # Check pod events for CSI mount errors
-kubectl describe pod -l app=postgres -n 3tirewebapp-dev
+kubectl describe pod -l app=postgres -n event-booking-dev
 
 # Check CSI driver logs
 kubectl logs -n kube-system -l app=secrets-store-csi-driver
@@ -721,14 +722,14 @@ echo "Validating Key Vault integration..."
 
 # Check if SecretProviderClass exists and is configured
 echo "1. Checking SecretProviderClass..."
-kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev > /dev/null 2>&1
+kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev > /dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo "   SecretProviderClass exists"
   
   # Check if required fields are configured
-  TENANT_ID=$(kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev -o jsonpath='{.spec.parameters.tenantId}')
-  USER_ID=$(kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev -o jsonpath='{.spec.parameters.userAssignedIdentityID}')
-  KV_NAME=$(kubectl get secretproviderclass postgres-secrets-provider -n 3tirewebapp-dev -o jsonpath='{.spec.parameters.keyvaultName}')
+  TENANT_ID=$(kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev -o jsonpath='{.spec.parameters.tenantId}')
+  USER_ID=$(kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev -o jsonpath='{.spec.parameters.userAssignedIdentityID}')
+  KV_NAME=$(kubectl get secretproviderclass postgres-secrets-provider -n event-booking-dev -o jsonpath='{.spec.parameters.keyvaultName}')
   
   if [ "$TENANT_ID" != "" ]; then echo "   Tenant ID configured: $TENANT_ID"; else echo "   ERROR: Tenant ID missing"; fi
   if [ "$USER_ID" != "" ]; then echo "   User Assigned Identity ID configured: $USER_ID"; else echo "   ERROR: User Assigned Identity ID missing"; fi
@@ -739,7 +740,7 @@ fi
 
 # Check if pods are running
 echo "2. Checking pod status..."
-kubectl get pods -n 3tirewebapp-dev --no-headers | while read line; do
+kubectl get pods -n event-booking-dev --no-headers | while read line; do
   POD_NAME=$(echo $line | awk '{print $1}')
   POD_STATUS=$(echo $line | awk '{print $3}')
   if [ "$POD_STATUS" = "Running" ]; then
@@ -896,7 +897,7 @@ kubectl port-forward svc/frontend -n 3tirewebapp-dev 3000:3000
 # http://localhost:3000
 ```
 
-**Your 3-tier application is now accessible! This includes a React frontend, Node.js backend, and PostgreSQL database.**
+**Your Event Booking application is now accessible! This includes a Vue.js frontend, Node.js backend, and PostgreSQL database.**
 
 ---
 
@@ -1043,25 +1044,29 @@ kubectl patch svc frontend -n 3tirewebapp-dev -p '{"spec":{"type":"ClusterIP"}}'
 
 Your deployed application consists of:
 
-#### **Frontend (React Application)**
-- **Service**: `frontend` on port 3000 (ClusterIP)
-- **Container**: `akpadetsi/event-booking-frontend:v2`
-- **Features**: React-based web interface with Express.js proxy server
-- **Ingress**: Pre-configured with domain `3tirewebapp-dev.local`
+#### **Frontend (Vue.js Application)**
+- **Service**: `frontend` on port 80 (LoadBalancer)
+- **Container**: `akpadetsi/event-booking-frontend:latest`
+- **Features**: Vue.js SPA with nginx serving and API proxying
+- **Access**: Directly accessible via LoadBalancer external IP
 - **Health Checks**: HTTP probes on `/` endpoint with liveness/readiness checks
 - **Resources**: 100m CPU request, 200m CPU limit, 128Mi-256Mi memory
 
 #### **Backend (Node.js API)**
 - **Service**: `backend` on port 8080 (ClusterIP)
 - **Container**: `akpadetsi/event-booking-backend:latest`
-- **Database Connection**: Connects to PostgreSQL via ConfigMap/Secret settings
-- **API Endpoints**: Health check on `/health`, business logic APIs
-- **Frontend Integration**: Backend URL configured as `http://backend:8080`
+- **Database Connection**: Connects to PostgreSQL via environment variables from secrets
+- **API Endpoints**: Health check on `/health`, event booking APIs, admin dashboard
+- **Features**: Event availability checking, booking management, admin interface
 - **Resources**: 100m CPU request, 200m CPU limit, 128Mi-256Mi memory
 
 #### **Database (PostgreSQL)**
 - **Service**: `postgres` on port 5432 (ClusterIP)
 - **Container**: `postgres:15`
+- **Database**: `eventbookingdb` for storing event bookings
+- **Persistence**: 1Gi PVC for data storage with automatic backups
+- **Secrets**: Database credentials managed via Azure Key Vault integration
+- **Features**: Event booking data, customer information, availability tracking
 - **Persistence**: Uses `postgres-pvc` persistent volume for data storage
 - **Database**: `goalsdb` with user `postgres`
 - **Configuration**: Environment variables managed via ConfigMaps and Secrets
